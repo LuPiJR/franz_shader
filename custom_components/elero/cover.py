@@ -6,44 +6,32 @@ import logging
 import time
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from homeassistant.components.cover import (
-    ATTR_POSITION, 
-    ATTR_TILT_POSITION,
-    CoverEntity,
-    CoverEntityFeature
-)
+from homeassistant.components.cover import (ATTR_POSITION, ATTR_TILT_POSITION,
+                                                CoverEntity,
+                                                CoverEntityFeature)
 from homeassistant.components.light import PLATFORM_SCHEMA
-from homeassistant.const import (
-    CONF_COVERS, 
-    CONF_DEVICE_CLASS, 
-    CONF_NAME,
-    STATE_CLOSED, 
-    STATE_CLOSING, 
-    STATE_OPEN,
-    STATE_OPENING, 
-    STATE_UNKNOWN
-)
+from homeassistant.const import (CONF_COVERS, CONF_DEVICE_CLASS, CONF_NAME, 
+                                 STATE_CLOSED, STATE_CLOSING, STATE_OPEN,
+                                   STATE_OPENING, STATE_UNKNOWN)
 
 import custom_components.elero as elero
 from custom_components.elero import (
-    CONF_TRANSMITTER_SERIAL_NUMBER,
-    INFO_BLOCKING,
-    INFO_BOTTOM_POS_STOP_WICH_INT_POS,
-    INFO_BOTTOM_POSITION_STOP,
-    INFO_INTERMEDIATE_POSITION_STOP,
-    INFO_MOVING_DOWN, 
-    INFO_MOVING_UP,
-    INFO_NO_INFORMATION, 
-    INFO_OVERHEATED,
-    INFO_START_TO_MOVE_DOWN,
-    INFO_START_TO_MOVE_UP,
-    INFO_STOPPED_IN_UNDEFINED_POSITION,
-    INFO_SWITCHING_DEVICE_SWITCHED_OFF,
-    INFO_SWITCHING_DEVICE_SWITCHED_ON,
-    INFO_TILT_VENTILATION_POS_STOP,
-    INFO_TIMEOUT,
-    INFO_TOP_POS_STOP_WICH_TILT_POS,
-    INFO_TOP_POSITION_STOP
+                                        CONF_TRANSMITTER_SERIAL_NUMBER,
+                                        INFO_BLOCKING,
+                                        INFO_BOTTOM_POS_STOP_WICH_INT_POS,
+                                        INFO_BOTTOM_POSITION_STOP,
+                                        INFO_INTERMEDIATE_POSITION_STOP,
+                                        INFO_MOVING_DOWN, INFO_MOVING_UP,
+                                        INFO_NO_INFORMATION, INFO_OVERHEATED,
+                                        INFO_START_TO_MOVE_DOWN,
+                                        INFO_START_TO_MOVE_UP,
+                                        INFO_STOPPED_IN_UNDEFINED_POSITION,
+                                        INFO_SWITCHING_DEVICE_SWITCHED_OFF,
+                                        INFO_SWITCHING_DEVICE_SWITCHED_ON,
+                                        INFO_TILT_VENTILATION_POS_STOP,
+                                        INFO_TIMEOUT,
+                                        INFO_TOP_POS_STOP_WICH_TILT_POS,
+                                        INFO_TOP_POSITION_STOP
 )
 
 from enum import Enum
@@ -245,10 +233,7 @@ class EleroCover(CoverEntity):
         self._device_class = ELERO_COVER_DEVICE_CLASSES[device_class]
         self._supported_features = 0
         for feature in supported_features:
-            if feature in SUPPORTED_FEATURES:
                 self._supported_features |= SUPPORTED_FEATURES[feature]
-            else:
-                _LOGGER.warning(f"Unsupported feature: {feature}")
 
         # Initialize TravelCalculator for time-based position tracking
         self.travel_calculator = TravelCalculator(travel_time_down, travel_time_up)
@@ -271,6 +256,36 @@ class EleroCover(CoverEntity):
     def name(self):
         """Return the name of the cover."""
         return self._name
+    
+    @property
+    def device_class(self):
+        """Return the class of this device."""
+        return self._device_class
+    
+    @property
+    def supported_features(self):
+        """Return the supported features of the cover."""
+        return self._supported_features
+    
+    @property
+    def should_poll(self):
+        """Return True if entity has to be polled for state.
+
+        Because of you can use other remote control (like MultiTel2)
+        next to the HA in your system and the status of the Elero devices
+        may change therefore it is necessary to monitor their statuses.
+        """
+        return True
+    
+    @property
+    def available(self):
+        """Return if the entity is available."""
+        return self._available
+    
+    @property
+    def current_cover_position(self):
+        """Return the current position of the cover."""
+        return self.travel_calculator.current_position()
 
     @property
     def is_closed(self):
@@ -278,11 +293,6 @@ class EleroCover(CoverEntity):
         if self._position is None:
             return None
         return self._position == POSITION_CLOSED
-
-    @property
-    def current_cover_position(self):
-        """Return the current position of the cover."""
-        return self.travel_calculator.current_position()
 
     @property
     def is_opening(self):
@@ -293,21 +303,6 @@ class EleroCover(CoverEntity):
     def is_closing(self):
         """Return if the cover is closing."""
         return self._is_closing
-
-    @property
-    def supported_features(self):
-        """Return the supported features of the cover."""
-        return self._supported_features
-
-    @property
-    def device_class(self):
-        """Return the class of this device."""
-        return self._device_class
-
-    @property
-    def available(self):
-        """Return if the entity is available."""
-        return self._available
 
     def set_cover_position(self, **kwargs):
         """Move the cover to a specific position."""
