@@ -228,7 +228,7 @@ class TravelCalculator:
 
 
 class EleroCover(CoverEntity):
-    """Representation of a Elero cover device with time-based position tracking."""
+    """Representation of a Elero cover device with time-based position tracking and error handling."""
 
     def __init__(
         self, hass, transmitter, name, channel, device_class, supported_features, travel_time_up, travel_time_down
@@ -256,8 +256,6 @@ class EleroCover(CoverEntity):
         self._state = None
         self._elero_state = None
         self._response = dict()
-
-    # Other existing methods of the class...
 
     @property
     def current_cover_position(self):
@@ -289,3 +287,34 @@ class EleroCover(CoverEntity):
         """Get the current position from the travel calculator and update."""
         self._position = self.travel_calculator.current_position()
 
+    def response_handler(self, response):
+        """Handle callback to the response from the Transmitter."""
+        self._response = response
+        self.set_states()
+
+    def set_states(self):
+        """Set the state of the cover based on the response from the transmitter, focusing on errors."""
+        self._elero_state = self._response.get("status")
+        
+        # Handle error conditions
+        if self._elero_state in (INFO_BLOCKING, INFO_OVERHEATED, INFO_TIMEOUT):
+            self._closed = None
+            self._is_closing = None
+            self._is_opening = None
+            self._state = STATE_UNKNOWN
+            self._position = None
+            self._tilt_position = None
+            _LOGGER.error(
+                f"Error detected: Transmitter '{self._transmitter.get_serial_number()}' on channel '{self._channel}', "
+                f"response: '{self._elero_state}'"
+            )
+        elif self._elero_state in (INFO_SWITCHING_DEVICE_SWITCHED_ON, INFO_SWITCHING_DEVICE_SWITCHED_OFF):
+            self._closed = None
+            self._is_closing = None
+            self._is_opening = None
+            self._state = STATE_UNKNOWN
+            self._position = None
+            self._tilt_position = None
+        else:
+            # For other states, we can safely ignore them since position is tracked by TravelCalculator.
+            _LOGGER.debug(f"Transmitter status: {self._elero_state} on channel {self._channel}")
