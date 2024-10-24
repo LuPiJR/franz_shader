@@ -96,6 +96,8 @@ COVER_SCHEMA = vol.Schema(
         vol.Required(CONF_NAME): str,
         vol.Required(CONF_SUPPORTED_FEATURES): SUPPORTED_FEATURES_SCHEMA,
         vol.Required(CONF_TRANSMITTER_SERIAL_NUMBER): str,
+        vol.Optional('travel_time_up', default=5): vol.Coerce(int),  # Add this line for travel_time_up
+        vol.Optional('travel_time_down', default=5): vol.Coerce(int),  # Add this line for travel_time_down
     }
 )
 
@@ -108,6 +110,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     """Set up the Elero cover platform."""
     covers = []
     covers_conf = config.get(CONF_COVERS, {})
+    
     for _, cover_conf in covers_conf.items():
         transmitter = elero.ELERO_TRANSMITTERS.get_transmitter(
             cover_conf.get(CONF_TRANSMITTER_SERIAL_NUMBER)
@@ -121,6 +124,10 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                 "non-existent transmitter!"
             )
             continue
+        
+        # Retrieve travel times from the configuration
+        travel_time_up = cover_conf.get('travel_time_up', 30)  # Default 30 seconds if not specified
+        travel_time_down = cover_conf.get('travel_time_down', 40)  # Default 40 seconds if not specified
 
         covers.append(
             EleroCover(
@@ -130,12 +137,13 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                 cover_conf.get(CONF_CHANNEL),
                 cover_conf.get(CONF_DEVICE_CLASS),
                 cover_conf.get(CONF_SUPPORTED_FEATURES),
-                travel_time_up=30,  # default travel time, adjust as necessary
-                travel_time_down=40  # default travel time, adjust as necessary
+                travel_time_up=travel_time_up,
+                travel_time_down=travel_time_down
             )
         )
 
     add_devices(covers, True)
+
 
 
 # Travel Status Enum
