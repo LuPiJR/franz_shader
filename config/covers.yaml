@@ -1,0 +1,144 @@
+- platform: elero
+  covers:
+    bathroom_small:
+        serial_number: 00000000
+        name: 'bathroom_small'
+        channel: 1
+        device_class: roller shutter
+        supported_features:
+            - up
+            - down
+            - stop
+            - set_position
+    guestroom:
+        serial_number: 00000000
+        name: 'guestroom'
+        channel: 2
+        device_class: roller shutter
+        supported_features:
+            - up
+            - down
+            - stop
+            - set_position
+    childrenroom:
+        serial_number: 00000000
+        name: 'childrenroom'
+        channel: 3
+        device_class: venetian blind
+        supported_features:
+            - up
+            - down
+            - stop
+            - set_position
+            - open_tilt
+            - close_tilt
+            - stop_tilt
+            - set_tilt_position
+    bathroom_big:
+        serial_number: 00000000
+        name: 'bathroom_big'
+        channel: 4
+        device_class: venetian blind
+        supported_features:
+            - up
+            - down
+            - stop
+            - set_position
+            - open_tilt
+            - close_tilt
+            - stop_tilt
+            - set_tilt_position
+    bedroom:
+        serial_number: 00000000
+        name: 'bedroom'
+        channel: 5
+        device_class: venetian blind
+        supported_features:
+            - up
+            - down
+            - stop
+            - set_position
+            - open_tilt
+            - close_tilt
+            - stop_tilt
+            - set_tilt_position
+    livingroom:
+        serial_number: 00000000
+        name: 'livingroom'
+        channel: 6
+        device_class: venetian blind
+        supported_features:
+            - up
+            - down
+            - stop
+            - set_position
+            - open_tilt
+            - close_tilt
+            - stop_tilt
+            - set_tilt_position
+    diningroom:
+        serial_number: 00000000
+        name: 'diningroom'
+        channel: 7
+        device_class: venetian blind
+        supported_features:
+            - up
+            - down
+            - stop
+            - set_position
+            - open_tilt
+            - close_tilt
+            - stop_tilt
+            - set_tilt_position
+
+- platform: group
+  name: 'all_cover_group'
+  entities:
+    - cover.bathroom_small
+    - cover.guestroom
+    - cover.childrenroom
+    - cover.bathroom_big
+    - cover.bedroom
+    - cover.livingroom
+    - cover.diningroom
+
+- platform: group
+  name: 'daytime_group'
+  entities:
+    - cover.bathroom_small
+    - cover.childrenroom
+    - cover.bedroom
+    - cover.livingroom
+    - cover.diningroom
+
+- platform: group
+  name: 'street_facing_group'
+  entities:
+    - cover.bathroom_small
+    - cover.guestroom
+
+- platform: group
+  name: 'east_group'
+  entities:
+    - cover.childrenroom
+
+- platform: group
+  name: 'south_group'
+  entities:
+    - cover.bathroom_big
+    - cover.bedroom
+    - cover.livingroom
+
+- platform: group
+  name: 'west_group'
+  entities:
+    - cover.diningroom
+
+- platform: group
+  name: 'east_south_west_group'
+  entities:
+    - cover.childrenroom
+    - cover.bathroom_big
+    - cover.bedroom
+    - cover.livingroom
+    - cover.diningroom

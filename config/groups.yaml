@@ -1,0 +1,50 @@
+
+###############################################################################
+# Main View #
+#############
+default_view:
+    name: 'Home'
+    view: yes
+    icon: mdi:home
+    entities:
+        - sun.sun
+
+
+###############################################################################
+# Cover System View #
+#####################
+
+cover_view:
+    name: 'Covers'
+    view: yes
+    entities:
+        - group.cover_all_covers_group
+        - group.cover_all_groups_group
+
+cover_all_covers_group:
+    name: 'Rooms'
+    view: no
+    entities:
+        - cover.bathroom_small
+        - cover.guestroom
+        - cover.childrenroom
+        - cover.bathroom_big
+        - cover.bedroom
+        - cover.livingroom
+        - cover.diningroom
+        - sensor.diningroom_state
+        - sensor.diningroom_elero_state
+        - sensor.diningroom_current_tilt_position
+        - sensor.diningroom_current_position
+
+cover_all_groups_group:
+    name: 'Groups'
+    view: no
+    entities:
+        - cover.all_cover_group
+        - cover.daytime_group
+        - cover.street_facing_group
+        - cover.east_group
+        - cover.south_group
+        - cover.west_group
+        - cover.east_south_west_group
