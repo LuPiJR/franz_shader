@@ -213,12 +213,12 @@ class TravelCalculator:
             from_position=self._last_known_position,
             to_position=self._travel_to_position,
         )
-        _LOGGER.warning(f"logger warning from position: {self._last_known_position} to position: {self._travel_to_position}")
+        _LOGGER.warning(f"logger warning from position: {self._last_known_position} to position: {self._travel_to_position} and remaining time is {remaining_travel_time}")
 
         if remaining_travel_time == 0:
             _LOGGER.warning("Remaining travel time is zero, returning last known position")
             return self._last_known_position
-
+        _LOGGER.warning(f"Last known position timestamp {self._last_known_position_timestamp}")
         progress = (
             time.time() - self._last_known_position_timestamp
         ) / remaining_travel_time
