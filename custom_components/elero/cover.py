@@ -4,7 +4,6 @@ __version__ = "3.2.1"
 
 import logging
 import time
-
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant.components.cover import (
@@ -241,9 +240,8 @@ class EleroCover(CoverEntity):
         self._device_class = device_class
         self._supported_features = 0
         for feature in supported_features:
-            # Map the feature name to a valid CoverEntityFeature constant
-            if feature.lower() in SUPPORTED_FEATURES_MAP:
-                self._supported_features |= SUPPORTED_FEATURES_MAP[feature.lower()]
+            if feature in SUPPORTED_FEATURES:
+                self._supported_features |= SUPPORTED_FEATURES[feature]
             else:
                 _LOGGER.warning(f"Unsupported feature: {feature}")
 
@@ -274,7 +272,7 @@ class EleroCover(CoverEntity):
         """Return if the cover is closed or not."""
         if self._position is None:
             return None
-        return self._position == 0
+        return self._position == POSITION_CLOSED
 
     @property
     def current_cover_position(self):
@@ -314,14 +312,14 @@ class EleroCover(CoverEntity):
 
     def open_cover(self, **kwargs):
         """Open the cover fully."""
-        self.travel_calculator.start_travel_up()
+        self.travel_calculator.start_travel(self.travel_calculator.position_open)
         self._is_opening = True
         self._is_closing = False
         # Open the cover via Elero device
 
     def close_cover(self, **kwargs):
         """Close the cover fully."""
-        self.travel_calculator.start_travel_down()
+        self.travel_calculator.start_travel(self.travel_calculator.position_closed)
         self._is_closing = True
         self._is_opening = False
         # Close the cover via Elero device
