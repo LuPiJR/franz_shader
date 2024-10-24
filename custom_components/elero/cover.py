@@ -330,6 +330,18 @@ class EleroCover(CoverEntity):
         """Return if the cover is closing."""
         return self._is_closing
 
+    def wait_for_acknowledgment(self, timeout=4):
+        """Wait for acknowledgment from the transmitter."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            # Check for ACK from the transmitter
+            response = self._transmitter.get_last_response()  # Assume this method exists
+            if response == "ACK":  # Adjust based on the actual ACK signal
+                _LOGGER.info("Acknowledgment received")
+                return True
+            time.sleep(0.1)  # Wait a short time before retrying
+        return False
+
     def set_cover_position(self, **kwargs):
         """Move the cover to a specific position."""
         position = kwargs.get(ATTR_POSITION)
@@ -339,11 +351,19 @@ class EleroCover(CoverEntity):
     def open_cover(self, **kwargs):
         """Open the cover fully."""
         _LOGGER.warning(f"Opening cover: {self._name} on channel {self._channel}")
+        
+        # Send the command
+        self._transmitter.up(self._channel)
+
+        # Wait for acknowledgment
+        if not self.wait_for_acknowledgment():
+            _LOGGER.error(f"Failed to receive acknowledgment for open cover: {self._name}")
+            return
+
+        # Proceed with tracking travel if ACK received
         self.travel_calculator.start_travel(self.travel_calculator.position_open)
         self._is_opening = True
         self._is_closing = False
-        # Open the cover via Elero device
-        self._transmitter.up(self._channel)
 
     def close_cover(self, **kwargs):
         """Close the cover fully."""
