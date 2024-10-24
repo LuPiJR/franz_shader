@@ -126,8 +126,8 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             continue
         
         # Retrieve travel times from the configuration
-        travel_time_up = cover_conf.get('travel_time_up', 5)
-        travel_time_down = cover_conf.get('travel_time_down', 5)
+        travel_time_up = cover_conf.get('travel_time_up', 15)
+        travel_time_down = cover_conf.get('travel_time_down', 15)
         _LOGGER.debug(f"Travel times - Up: {travel_time_up}s, Down: {travel_time_down}s")
         
         covers.append(
@@ -213,6 +213,7 @@ class TravelCalculator:
             from_position=self._last_known_position,
             to_position=self._travel_to_position,
         )
+        _LOGGER.warning(f"logger warning from position: {self._last_known_position} to position: {self._travel_to_position}")
 
         if remaining_travel_time == 0:
             _LOGGER.warning("Remaining travel time is zero, returning last known position")
