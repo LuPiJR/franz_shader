@@ -338,6 +338,7 @@ class EleroCover(CoverEntity):
 
     def open_cover(self, **kwargs):
         """Open the cover fully."""
+        _LOGGER.warning(f"Opening cover: {self._name} on channel {self._channel}")
         self.travel_calculator.start_travel(self.travel_calculator.position_open)
         self._is_opening = True
         self._is_closing = False
@@ -345,6 +346,7 @@ class EleroCover(CoverEntity):
 
     def close_cover(self, **kwargs):
         """Close the cover fully."""
+        _LOGGER.warning(f"Closeing cover: {self._name} on channel {self._channel}")
         self.travel_calculator.start_travel(self.travel_calculator.position_closed)
         self._is_closing = True
         self._is_opening = False
@@ -352,6 +354,7 @@ class EleroCover(CoverEntity):
 
     def stop_cover(self, **kwargs):
         """Stop the cover."""
+        _LOGGER.warning(f"Stopping cover: {self._name} on channel {self._channel}")
         self.travel_calculator.stop()
         self._is_opening = False
         self._is_closing = False
