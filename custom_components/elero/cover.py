@@ -153,7 +153,6 @@ class TravelStatus(Enum):
     DIRECTION_DOWN = 2
     STOPPED = 3
 
-# Travel Calculator for time-based position prediction
 class TravelCalculator:
     def __init__(self, travel_time_down: float, travel_time_up: float) -> None:
         self.travel_direction = TravelStatus.STOPPED
@@ -214,6 +213,11 @@ class TravelCalculator:
             from_position=self._last_known_position,
             to_position=self._travel_to_position,
         )
+
+        if remaining_travel_time == 0:
+            _LOGGER.warning("Remaining travel time is zero, returning last known position")
+            return self._last_known_position
+
         progress = (
             time.time() - self._last_known_position_timestamp
         ) / remaining_travel_time
@@ -242,17 +246,19 @@ class EleroCover(CoverEntity):
         self._device_class = ELERO_COVER_DEVICE_CLASSES[device_class]
         self._supported_features = 0
         for feature in supported_features:
-                self._supported_features |= SUPPORTED_FEATURES[feature]
+            self._supported_features |= SUPPORTED_FEATURES[feature]
 
         # Initialize TravelCalculator for time-based position tracking
         self.travel_calculator = TravelCalculator(travel_time_down, travel_time_up)
+
+        self._position = POSITION_CLOSED  # Assuming the cover starts closed
+        self.travel_calculator.set_position(self._position)  # Set initial position in calculator
 
         self._available = self._transmitter.set_channel(
             self._channel, self.response_handler
         )
 
         # States
-        self._position = None  # Current position (0-100%)
         self._is_opening = None  # Boolean indicating if it's opening
         self._is_closing = None  # Boolean indicating if it's closing
         self._closed = None  # Boolean for closed state
@@ -260,6 +266,7 @@ class EleroCover(CoverEntity):
         self._state = None  # General state (opening, closing, stopped)
         self._elero_state = None  # State from the transmitter (errors, etc.)
         self._response = dict()  # Holds responses from the transmitter
+
 
     @property
     def unique_id(self):
