@@ -1,53 +1,40 @@
-"""Support for Elero cover components with time-based position tracking."""
+
+"""Support for Elero cover components."""
 
 __version__ = "3.2.1"
 
 import logging
-import time
+
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from homeassistant.components.cover import (
-    ATTR_POSITION, 
-    ATTR_TILT_POSITION,
-    CoverEntity,
-    CoverEntityFeature
-)
+from homeassistant.components.cover import (ATTR_POSITION, ATTR_TILT_POSITION,
+                                            CoverEntity,
+                                            CoverEntityFeature)
 from homeassistant.components.light import PLATFORM_SCHEMA
-from homeassistant.const import (
-    CONF_COVERS, 
-    CONF_DEVICE_CLASS, 
-    CONF_NAME,
-    STATE_CLOSED, 
-    STATE_CLOSING, 
-    STATE_OPEN,
-    STATE_OPENING, 
-    STATE_UNKNOWN
-)
+from homeassistant.const import (CONF_COVERS, CONF_DEVICE_CLASS, CONF_NAME,
+                                 STATE_CLOSED, STATE_CLOSING, STATE_OPEN,
+                                 STATE_OPENING, STATE_UNKNOWN)
 
 import custom_components.elero as elero
 from custom_components.elero import (
-    CONF_TRANSMITTER_SERIAL_NUMBER,
-    INFO_BLOCKING,
-    INFO_BOTTOM_POS_STOP_WICH_INT_POS,
-    INFO_BOTTOM_POSITION_STOP,
-    INFO_INTERMEDIATE_POSITION_STOP,
-    INFO_MOVING_DOWN, 
-    INFO_MOVING_UP,
-    INFO_NO_INFORMATION, 
-    INFO_OVERHEATED,
-    INFO_START_TO_MOVE_DOWN,
-    INFO_START_TO_MOVE_UP,
-    INFO_STOPPED_IN_UNDEFINED_POSITION,
-    INFO_SWITCHING_DEVICE_SWITCHED_OFF,
-    INFO_SWITCHING_DEVICE_SWITCHED_ON,
-    INFO_TILT_VENTILATION_POS_STOP,
-    INFO_TIMEOUT,
-    INFO_TOP_POS_STOP_WICH_TILT_POS,
-    INFO_TOP_POSITION_STOP
-)
+                                     CONF_TRANSMITTER_SERIAL_NUMBER,
+                                     INFO_BLOCKING,
+                                     INFO_BOTTOM_POS_STOP_WICH_INT_POS,
+                                     INFO_BOTTOM_POSITION_STOP,
+                                     INFO_INTERMEDIATE_POSITION_STOP,
+                                     INFO_MOVING_DOWN, INFO_MOVING_UP,
+                                     INFO_NO_INFORMATION, INFO_OVERHEATED,
+                                     INFO_START_TO_MOVE_DOWN,
+                                     INFO_START_TO_MOVE_UP,
+                                     INFO_STOPPED_IN_UNDEFINED_POSITION,
+                                     INFO_SWITCHING_DEVICE_SWITCHED_OFF,
+                                     INFO_SWITCHING_DEVICE_SWITCHED_ON,
+                                     INFO_TILT_VENTILATION_POS_STOP,
+                                     INFO_TIMEOUT,
+                                     INFO_TOP_POS_STOP_WICH_TILT_POS,
+                                     INFO_TOP_POSITION_STOP)
 
-from enum import Enum
-
+# Python libraries/modules that you would normally install for your component.
 REQUIREMENTS = []
 
 # Other HASS components that should be setup before the platform is loaded.
@@ -68,20 +55,20 @@ ELERO_COVER_DEVICE_CLASSES = {
     "venetian blind": "window",
 }
 
-# Position slider values
+# Position slider values.
 POSITION_CLOSED = 0
 POSITION_INTERMEDIATE = 75
 POSITION_OPEN = 100
 POSITION_TILT_VENTILATION = 25
 POSITION_UNDEFINED = 50
 
-# Elero states
+# Elero states.
 STATE_INTERMEDIATE = "intermediate"
 STATE_STOPPED = "stopped"
 STATE_TILT_VENTILATION = "ventilation/tilt"
 STATE_UNDEFINED = "undefined"
 
-# Supported features
+# Supported features.
 SUPPORTED_FEATURES = {
     "close_tilt": CoverEntityFeature.CLOSE_TILT,
     "down": CoverEntityFeature.CLOSE,
@@ -99,8 +86,10 @@ ELERO_COVER_DEVICE_CLASSES_SCHEMA = vol.All(
 
 SUPPORTED_FEATURES_SCHEMA = vol.All(cv.ensure_list, [vol.In(SUPPORTED_FEATURES)])
 
+# It is needed because of the transmitter has a channel handling bug.
 CHANNEL_NUMBERS_SCHEMA = vol.All(vol.Coerce(int), vol.Range(min=1, max=15))
 
+# Validation of the user's configuration.
 COVER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_CHANNEL): CHANNEL_NUMBERS_SCHEMA,
@@ -111,6 +100,7 @@ COVER_SCHEMA = vol.Schema(
     }
 )
 
+# Validation of the user's configuration.
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {vol.Required(CONF_COVERS): vol.Schema({cv.slug: COVER_SCHEMA}), }
 )
@@ -142,130 +132,49 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                 cover_conf.get(CONF_CHANNEL),
                 cover_conf.get(CONF_DEVICE_CLASS),
                 cover_conf.get(CONF_SUPPORTED_FEATURES),
-                travel_time_up=30,  # default travel time, adjust as necessary
-                travel_time_down=40  # default travel time, adjust as necessary
             )
         )
 
     add_devices(covers, True)
 
 
-# Travel Status Enum
-class TravelStatus(Enum):
-    DIRECTION_UP = 1
-    DIRECTION_DOWN = 2
-    STOPPED = 3
-
-# Travel Calculator for time-based position prediction
-class TravelCalculator:
-    def __init__(self, travel_time_down: float, travel_time_up: float) -> None:
-        self.travel_direction = TravelStatus.STOPPED
-        self.travel_time_down = travel_time_down
-        self.travel_time_up = travel_time_up
-
-        self._last_known_position = None
-        self._last_known_position_timestamp = 0.0
-        self._position_confirmed = False
-        self._travel_to_position = None
-        self.position_closed = 100
-        self.position_open = 0
-
-    def set_position(self, position: int) -> None:
-        self._travel_to_position = position
-        self.update_position(position)
-
-    def update_position(self, position: int) -> None:
-        self._last_known_position = position
-        self._last_known_position_timestamp = time.time()
-        if position == self._travel_to_position:
-            self._position_confirmed = True
-
-    def stop(self) -> None:
-        stop_position = self.current_position()
-        if stop_position is None:
-            return
-        self._last_known_position = stop_position
-        self._travel_to_position = stop_position
-        self._position_confirmed = False
-        self.travel_direction = TravelStatus.STOPPED
-
-    def start_travel(self, _travel_to_position: int) -> None:
-        if self._last_known_position is None:
-            self.set_position(_travel_to_position)
-            return
-        self.stop()
-        self._last_known_position_timestamp = time.time()
-        self._travel_to_position = _travel_to_position
-        self._position_confirmed = False
-        self.travel_direction = (
-            TravelStatus.DIRECTION_DOWN
-            if _travel_to_position > self._last_known_position
-            else TravelStatus.DIRECTION_UP
-        )
-
-    def current_position(self) -> int | None:
-        if not self._position_confirmed:
-            return self._calculate_position()
-        return self._last_known_position
-
-    def _calculate_position(self) -> int | None:
-        if self._travel_to_position is None or self._last_known_position is None:
-            return self._last_known_position
-
-        relative_position = self._travel_to_position - self._last_known_position
-        remaining_travel_time = self.calculate_travel_time(
-            from_position=self._last_known_position,
-            to_position=self._travel_to_position,
-        )
-        progress = (
-            time.time() - self._last_known_position_timestamp
-        ) / remaining_travel_time
-
-        return int(self._last_known_position + relative_position * progress)
-
-    def calculate_travel_time(self, from_position: int, to_position: int) -> float:
-        travel_range = to_position - from_position
-        travel_time_full = (
-            self.travel_time_down if travel_range > 0 else self.travel_time_up
-        )
-        return travel_time_full * abs(travel_range) / self.position_closed
-
-
 class EleroCover(CoverEntity):
-    """Representation of a Elero cover device with time-based position tracking and error handling."""
+    """Representation of a Elero cover device."""
 
     def __init__(
-        self, hass, transmitter, name, channel, device_class, supported_features, travel_time_up, travel_time_down
+        self, hass, transmitter, name, channel, device_class, supported_features
     ):
-        """Initialize a Elero cover."""
+        """Init of a Elero cover."""
         self.hass = hass
         self._transmitter = transmitter
         self._name = name
         self._channel = channel
         self._device_class = ELERO_COVER_DEVICE_CLASSES[device_class]
-        self._supported_features = 0
-        for feature in supported_features:
-            if feature in SUPPORTED_FEATURES:
-                self._supported_features |= SUPPORTED_FEATURES[feature]
-            else:
-                _LOGGER.warning(f"Unsupported feature: {feature}")
 
-        # Initialize TravelCalculator for time-based position tracking
-        self.travel_calculator = TravelCalculator(travel_time_down, travel_time_up)
+        self._supported_features = 0
+        for f in supported_features:
+            self._supported_features |= SUPPORTED_FEATURES[f]
 
         self._available = self._transmitter.set_channel(
             self._channel, self.response_handler
         )
+        self._position = None
+        self._is_opening = None
+        self._is_closing = None
+        self._closed = None
+        self._tilt_position = None
+        self._state = None
+        self._elero_state = None
+        self._response = dict()
 
-        # States
-        self._position = None  # Current position (0-100%)
-        self._is_opening = None  # Boolean indicating if it's opening
-        self._is_closing = None  # Boolean indicating if it's closing
-        self._closed = None  # Boolean for closed state
-        self._tilt_position = None  # Current tilt position
-        self._state = None  # General state (opening, closing, stopped)
-        self._elero_state = None  # State from the transmitter (errors, etc.)
-        self._response = dict()  # Holds responses from the transmitter
+    @property
+    def unique_id(self):
+        """
+        Gets the unique ID of the cover.
+        """
+        ser_num = self._transmitter.get_serial_number()
+        ch = self._channel
+        return f"{ser_num}_{ch}"
 
     @property
     def name(self):
@@ -273,72 +182,163 @@ class EleroCover(CoverEntity):
         return self._name
 
     @property
-    def is_closed(self):
-        """Return if the cover is closed or not."""
-        if self._position is None:
-            return None
-        return self._position == POSITION_CLOSED
+    def device_class(self):
+        """Return the class of this device, from component DEVICE_CLASSES."""
+        return self._device_class
+
+    @property
+    def supported_features(self):
+        """Flag supported features."""
+        return self._supported_features
+
+    @property
+    def should_poll(self):
+        """Return True if entity has to be polled for state.
+
+        Because of you can use other remote control (like MultiTel2)
+        next to the HA in your system and the status of the Elero devices
+        may change therefore it is necessary to monitor their statuses.
+        """
+        return True
+
+    @property
+    def available(self):
+        """Return True if entity is available."""
+        return self._available
 
     @property
     def current_cover_position(self):
-        """Return the current position of the cover."""
-        return self.travel_calculator.current_position()
+        """Return the current position of the cover.
+
+        None is unknown, 0 is closed, 100 is fully open.
+        """
+        return self._position
+
+    @property
+    def current_cover_tilt_position(self):
+        """Return the current tilt position of the cover."""
+        return self._tilt_position
 
     @property
     def is_opening(self):
-        """Return if the cover is opening."""
+        """Return if the cover is opening or not."""
         return self._is_opening
 
     @property
     def is_closing(self):
-        """Return if the cover is closing."""
+        """Return if the cover is closing or not."""
         return self._is_closing
 
     @property
-    def supported_features(self):
-        """Return the supported features of the cover."""
-        return self._supported_features
+    def is_closed(self):
+        """Return if the cover is closed."""
+        return self._closed
 
     @property
-    def device_class(self):
-        """Return the class of this device."""
-        return self._device_class
+    def state(self):
+        """Return the state of the cover."""
+        return self._state
 
     @property
-    def available(self):
-        """Return if the entity is available."""
-        return self._available
+    def extra_state_attributes(self):
+        """Return device specific state attributes."""
+        data = {}
+
+        elero_state = self._elero_state
+        if elero_state is not None:
+            data[ATTR_ELERO_STATE] = self._elero_state
+
+        return data
+
+    def update(self):
+        """Get the device sate and update its attributes and state."""
+        self._transmitter.info(self._channel)
+
+    def close_cover(self, **kwargs):
+        """Close the cover."""
+        self._transmitter.down(self._channel)
+        self._closed = False
+        self._is_closing = True
+        self._is_opening = False
+        self._state = STATE_CLOSING
+        self._position = POSITION_CLOSED
+        self._tilt_position = POSITION_UNDEFINED
+
+    def open_cover(self, **kwargs):
+        """Open the cover."""
+        self._transmitter.up(self._channel)
+        self._closed = False
+        self._is_closing = False
+        self._is_opening = True
+        self._state = STATE_OPENING
+        self._position = POSITION_OPEN
+        self._tilt_position = POSITION_UNDEFINED
+
+    def stop_cover(self, **kwargs):
+        """Stop the cover."""
+        self._transmitter.stop(self._channel)
+        self._closed = False
+        self._is_closing = False
+        self._is_opening = False
+        self._state = STATE_STOPPED
+        self._position = POSITION_UNDEFINED
+        self._tilt_position = POSITION_UNDEFINED
 
     def set_cover_position(self, **kwargs):
         """Move the cover to a specific position."""
         position = kwargs.get(ATTR_POSITION)
-        self.travel_calculator.start_travel(position)
-        # Send position command to the Elero device
+        if position < 13:
+            self.close_cover()
+        elif position > 13 and position < 50:
+            self.cover_ventilation_tilting_position()
+        elif position > 50 and position < 88:
+            self.cover_intermediate_position()
+        elif position > 88:
+            self.open_cover()
+        else:
+            _LOGGER.error(f"Wrong Position slider data: {position}")
 
-    def open_cover(self, **kwargs):
-        """Open the cover fully."""
-        self.travel_calculator.start_travel(self.travel_calculator.position_open)
-        self._is_opening = True
+    def cover_ventilation_tilting_position(self, **kwargs):
+        """Move into the ventilation/tilting position."""
+        self._transmitter.ventilation_tilting(self._channel)
+        self._closed = False
         self._is_closing = False
-        # Open the cover via Elero device
-
-    def close_cover(self, **kwargs):
-        """Close the cover fully."""
-        self.travel_calculator.start_travel(self.travel_calculator.position_closed)
-        self._is_closing = True
         self._is_opening = False
-        # Close the cover via Elero device
+        self._state = STATE_TILT_VENTILATION
+        self._position = POSITION_TILT_VENTILATION
+        self._tilt_position = POSITION_TILT_VENTILATION
 
-    def stop_cover(self, **kwargs):
-        """Stop the cover."""
-        self.travel_calculator.stop()
-        self._is_opening = False
+    def cover_intermediate_position(self, **kwargs):
+        """Move into the intermediate position."""
+        self._transmitter.intermediate(self._channel)
+        self._closed = False
         self._is_closing = False
-        # Stop the cover via Elero device
+        self._is_opening = False
+        self._state = STATE_INTERMEDIATE
+        self._position = POSITION_INTERMEDIATE
+        self._tilt_position = POSITION_INTERMEDIATE
 
-    def update(self):
-        """Update the current position from the travel calculator."""
-        self._position = self.travel_calculator.current_position()
+    def close_cover_tilt(self, **kwargs):
+        """Close the cover tilt."""
+        self.cover_ventilation_tilting_position()
+
+    def open_cover_tilt(self, **kwargs):
+        """Open the cover tilt."""
+        self.cover_intermediate_position()
+
+    def stop_cover_tilt(self, **kwargs):
+        """Stop the cover tilt."""
+        self.stop_cover()
+
+    def set_cover_tilt_position(self, **kwargs):
+        """Move the cover tilt to a specific position."""
+        tilt_position = kwargs.get(ATTR_TILT_POSITION)
+        if tilt_position < 50:
+            self.cover_ventilation_tilting_position()
+        elif tilt_position > 50:
+            self.cover_intermediate_position()
+        else:
+            _LOGGER.error(f"Wrong Tilt Position slider data: {tilt_position}")
 
     def response_handler(self, response):
         """Handle callback to the response from the Transmitter."""
@@ -346,94 +346,93 @@ class EleroCover(CoverEntity):
         self.set_states()
 
     def set_states(self):
-        """Set the state of the cover based on the response from the transmitter, focusing on errors."""
-        self._elero_state = self._response.get("status")
-
-        if self._elero_state == INFO_NO_INFORMATION:
+        """Set the state of the cover."""
+        self._elero_state = self._response["status"]
+        if self._response["status"] == INFO_NO_INFORMATION:
             self._closed = None
             self._is_closing = None
             self._is_opening = None
             self._state = STATE_UNKNOWN
             self._position = None
             self._tilt_position = None
-        elif self._elero_state == INFO_TOP_POSITION_STOP:
+        elif self._response["status"] == INFO_TOP_POSITION_STOP:
             self._closed = False
             self._is_closing = False
             self._is_opening = False
             self._state = STATE_OPEN
             self._position = POSITION_OPEN
             self._tilt_position = POSITION_UNDEFINED
-        elif self._elero_state == INFO_BOTTOM_POSITION_STOP:
+        elif self._response["status"] == INFO_BOTTOM_POSITION_STOP:
             self._closed = True
             self._is_closing = False
             self._is_opening = False
             self._state = STATE_CLOSED
             self._position = POSITION_CLOSED
             self._tilt_position = POSITION_UNDEFINED
-        elif self._elero_state == INFO_INTERMEDIATE_POSITION_STOP:
+        elif self._response["status"] == INFO_INTERMEDIATE_POSITION_STOP:
             self._closed = False
             self._is_closing = False
             self._is_opening = False
             self._state = STATE_INTERMEDIATE
             self._position = POSITION_INTERMEDIATE
             self._tilt_position = POSITION_INTERMEDIATE
-        elif self._elero_state == INFO_TILT_VENTILATION_POS_STOP:
+        elif self._response["status"] == INFO_TILT_VENTILATION_POS_STOP:
             self._closed = False
             self._is_closing = False
             self._is_opening = False
             self._state = STATE_TILT_VENTILATION
             self._position = POSITION_TILT_VENTILATION
             self._tilt_position = POSITION_TILT_VENTILATION
-        elif self._elero_state == INFO_START_TO_MOVE_UP:
+        elif self._response["status"] == INFO_START_TO_MOVE_UP:
             self._closed = False
             self._is_closing = False
             self._is_opening = True
             self._state = STATE_OPENING
             self._position = POSITION_UNDEFINED
             self._tilt_position = POSITION_UNDEFINED
-        elif self._elero_state == INFO_START_TO_MOVE_DOWN:
+        elif self._response["status"] == INFO_START_TO_MOVE_DOWN:
             self._closed = False
             self._is_closing = True
             self._is_opening = False
             self._state = STATE_CLOSING
             self._position = POSITION_UNDEFINED
             self._tilt_position = POSITION_UNDEFINED
-        elif self._elero_state == INFO_MOVING_UP:
+        elif self._response["status"] == INFO_MOVING_UP:
             self._closed = False
             self._is_closing = False
             self._is_opening = True
             self._state = STATE_OPENING
             self._position = POSITION_UNDEFINED
             self._tilt_position = POSITION_UNDEFINED
-        elif self._elero_state == INFO_MOVING_DOWN:
+        elif self._response["status"] == INFO_MOVING_DOWN:
             self._closed = False
             self._is_closing = True
             self._is_opening = False
             self._state = STATE_CLOSING
             self._position = POSITION_UNDEFINED
             self._tilt_position = POSITION_UNDEFINED
-        elif self._elero_state == INFO_STOPPED_IN_UNDEFINED_POSITION:
+        elif self._response["status"] == INFO_STOPPED_IN_UNDEFINED_POSITION:
             self._closed = False
             self._is_closing = False
             self._is_opening = False
             self._state = STATE_UNDEFINED
             self._position = POSITION_UNDEFINED
             self._tilt_position = POSITION_UNDEFINED
-        elif self._elero_state == INFO_TOP_POS_STOP_WICH_TILT_POS:
+        elif self._response["status"] == INFO_TOP_POS_STOP_WICH_TILT_POS:
             self._closed = False
             self._is_closing = False
             self._is_opening = False
             self._state = STATE_TILT_VENTILATION
             self._position = POSITION_TILT_VENTILATION
             self._tilt_position = POSITION_TILT_VENTILATION
-        elif self._elero_state == INFO_BOTTOM_POS_STOP_WICH_INT_POS:
+        elif self._response["status"] == INFO_BOTTOM_POS_STOP_WICH_INT_POS:
             self._closed = True
             self._is_closing = False
             self._is_opening = False
             self._state = STATE_INTERMEDIATE
             self._position = POSITION_INTERMEDIATE
             self._tilt_position = POSITION_INTERMEDIATE
-        elif self._elero_state in (INFO_BLOCKING, INFO_OVERHEATED, INFO_TIMEOUT):
+        elif self._response["status"] in (INFO_BLOCKING, INFO_OVERHEATED, INFO_TIMEOUT):
             self._closed = None
             self._is_closing = None
             self._is_opening = None
@@ -445,7 +444,11 @@ class EleroCover(CoverEntity):
             _LOGGER.error(
                 f"Transmitter: '{t}' ch: '{self._channel}'  error response: '{r}'."
             )
-        elif self._elero_state in (INFO_SWITCHING_DEVICE_SWITCHED_ON, INFO_SWITCHING_DEVICE_SWITCHED_OFF):
+
+        elif self._response["status"] in (
+            INFO_SWITCHING_DEVICE_SWITCHED_ON,
+            INFO_SWITCHING_DEVICE_SWITCHED_OFF,
+        ):
             self._closed = None
             self._is_closing = None
             self._is_opening = None
