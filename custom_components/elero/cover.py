@@ -343,6 +343,7 @@ class EleroCover(CoverEntity):
         self._is_opening = True
         self._is_closing = False
         # Open the cover via Elero device
+        self._transmitter.up(self._channel)
 
     def close_cover(self, **kwargs):
         """Close the cover fully."""
@@ -351,6 +352,7 @@ class EleroCover(CoverEntity):
         self._is_closing = True
         self._is_opening = False
         # Close the cover via Elero device
+        self._transmitter.close(self._channel)
 
     def stop_cover(self, **kwargs):
         """Stop the cover."""
@@ -359,6 +361,7 @@ class EleroCover(CoverEntity):
         self._is_opening = False
         self._is_closing = False
         # Stop the cover via Elero device
+        self._transmitter.stop(self._channel)
 
     def update(self):
         """Update the current position from the travel calculator."""
