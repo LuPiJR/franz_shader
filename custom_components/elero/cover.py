@@ -233,34 +233,74 @@ class EleroCover(CoverEntity):
     def __init__(
         self, hass, transmitter, name, channel, device_class, supported_features, travel_time_up, travel_time_down
     ):
-        """Init of a Elero cover."""
+        """Initialize a Elero cover."""
         self.hass = hass
         self._transmitter = transmitter
         self._name = name
         self._channel = channel
-        self._device_class = ELERO_COVER_DEVICE_CLASSES[device_class]
+        self._device_class = device_class
         self._supported_features = 0
-        for f in supported_features:
-            self._supported_features |= SUPPORTED_FEATURES[f]
+        for feature in supported_features:
+            self._supported_features |= CoverEntityFeature[feature.upper()]
 
+        # Initialize TravelCalculator for time-based position tracking
         self.travel_calculator = TravelCalculator(travel_time_down, travel_time_up)
 
         self._available = self._transmitter.set_channel(
             self._channel, self.response_handler
         )
-        self._position = None
-        self._is_opening = None
-        self._is_closing = None
-        self._closed = None
-        self._tilt_position = None
-        self._state = None
-        self._elero_state = None
-        self._response = dict()
+
+        # States
+        self._position = None  # Current position (0-100%)
+        self._is_opening = None  # Boolean indicating if it's opening
+        self._is_closing = None  # Boolean indicating if it's closing
+        self._closed = None  # Boolean for closed state
+        self._tilt_position = None  # Current tilt position
+        self._state = None  # General state (opening, closing, stopped)
+        self._elero_state = None  # State from the transmitter (errors, etc.)
+        self._response = dict()  # Holds responses from the transmitter
+
+    @property
+    def name(self):
+        """Return the name of the cover."""
+        return self._name
+
+    @property
+    def is_closed(self):
+        """Return if the cover is closed or not."""
+        if self._position is None:
+            return None
+        return self._position == 0
 
     @property
     def current_cover_position(self):
         """Return the current position of the cover."""
         return self.travel_calculator.current_position()
+
+    @property
+    def is_opening(self):
+        """Return if the cover is opening."""
+        return self._is_opening
+
+    @property
+    def is_closing(self):
+        """Return if the cover is closing."""
+        return self._is_closing
+
+    @property
+    def supported_features(self):
+        """Return the supported features of the cover."""
+        return self._supported_features
+
+    @property
+    def device_class(self):
+        """Return the class of this device."""
+        return self._device_class
+
+    @property
+    def available(self):
+        """Return if the entity is available."""
+        return self._available
 
     def set_cover_position(self, **kwargs):
         """Move the cover to a specific position."""
@@ -271,20 +311,26 @@ class EleroCover(CoverEntity):
     def open_cover(self, **kwargs):
         """Open the cover fully."""
         self.travel_calculator.start_travel_up()
-        # Open cover via Elero device
+        self._is_opening = True
+        self._is_closing = False
+        # Open the cover via Elero device
 
     def close_cover(self, **kwargs):
         """Close the cover fully."""
         self.travel_calculator.start_travel_down()
-        # Close cover via Elero device
+        self._is_closing = True
+        self._is_opening = False
+        # Close the cover via Elero device
 
     def stop_cover(self, **kwargs):
         """Stop the cover."""
         self.travel_calculator.stop()
+        self._is_opening = False
+        self._is_closing = False
         # Stop the cover via Elero device
 
     def update(self):
-        """Get the current position from the travel calculator and update."""
+        """Update the current position from the travel calculator."""
         self._position = self.travel_calculator.current_position()
 
     def response_handler(self, response):
@@ -295,7 +341,7 @@ class EleroCover(CoverEntity):
     def set_states(self):
         """Set the state of the cover based on the response from the transmitter, focusing on errors."""
         self._elero_state = self._response.get("status")
-        
+
         # Handle error conditions
         if self._elero_state in (INFO_BLOCKING, INFO_OVERHEATED, INFO_TIMEOUT):
             self._closed = None
@@ -316,5 +362,5 @@ class EleroCover(CoverEntity):
             self._position = None
             self._tilt_position = None
         else:
-            # For other states, we can safely ignore them since position is tracked by TravelCalculator.
+            # Log other statuses for debugging
             _LOGGER.debug(f"Transmitter status: {self._elero_state} on channel {self._channel}")
