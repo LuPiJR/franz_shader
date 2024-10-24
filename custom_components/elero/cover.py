@@ -126,9 +126,10 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             continue
         
         # Retrieve travel times from the configuration
-        travel_time_up = cover_conf.get('travel_time_up', 30)  # Default 30 seconds if not specified
-        travel_time_down = cover_conf.get('travel_time_down', 40)  # Default 40 seconds if not specified
-
+        travel_time_up = cover_conf.get('travel_time_up', 5)
+        travel_time_down = cover_conf.get('travel_time_down', 5)
+        _LOGGER.debug(f"Travel times - Up: {travel_time_up}s, Down: {travel_time_down}s")
+        
         covers.append(
             EleroCover(
                 hass,
@@ -261,6 +262,15 @@ class EleroCover(CoverEntity):
         self._response = dict()  # Holds responses from the transmitter
 
     @property
+    def unique_id(self):
+        """
+        Gets the unique ID of the cover.
+        """
+        ser_num = self._transmitter.get_serial_number()
+        ch = self._channel
+        return f"{ser_num}_{ch}"
+        
+    @property
     def name(self):
         """Return the name of the cover."""
         return self._name
@@ -345,6 +355,7 @@ class EleroCover(CoverEntity):
 
     def response_handler(self, response):
         """Handle callback to the response from the Transmitter."""
+        _LOGGER.debug(f"Response received from transmitter: {response}")
         self._response = response
         self.set_states()
 
